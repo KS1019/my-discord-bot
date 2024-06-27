@@ -3,7 +3,7 @@ name = "my-discord-bot"
 version = "0.1.0"
 description = "Add your description here"
 authors = [
-    { name = "KOTARO SUTO", email = "ng1a5ss43@gmail.com" }
+    { name = "KOTARO SUTO" }
 ]
 dependencies = [
     "feedparser>=6.0.11",
