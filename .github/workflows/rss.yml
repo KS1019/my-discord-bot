@@ -15,4 +15,6 @@ jobs:
       - name: Install the latest version of rye
         uses: eifinger/setup-rye@v3
       - name: Run Rye
+        env:
+          DISCORD_TWITTER3_WEBHOOK: ${{ secrets.DISCORD_TWITTER3_WEBHOOK }}
         run: rye sync && rye run my-discord-bot rss_links.txt
