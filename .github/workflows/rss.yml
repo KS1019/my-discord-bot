@@ -1,1 +1,29 @@
+# Run `rye run my-discord-bot rss_links.txt` every 5 hours
+name: RSS
 
+on:
+  schedule:
+    - cron: '0 */5 * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      # Setup actions/cache@v4
+      - name: Cache Rye
+        id: cache-rye
+        uses: actions/cache@v2
+        with:
+          path: $HOME/.rye/shims/rye
+          key: ${{ runner.os }}-rye
+      # Install Rye (and cache it for future runs)
+      - name: Install Rye
+        if: steps.cache-rye.outputs.cache-hit != 'true'
+        run: curl -sSf https://rye.astral.sh/get | bash
+
+      - name: Run Rye
+        run: rye sync && rye run my-discord-bot rss_links.txt
