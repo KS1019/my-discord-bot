@@ -9,7 +9,17 @@
 #   generate-hashes: false
 
 -e file:.
+certifi==2024.6.2
+    # via requests
+charset-normalizer==3.3.2
+    # via requests
 feedparser==6.0.11
+    # via my-discord-bot
+idna==3.7
+    # via requests
+requests==2.32.3
     # via my-discord-bot
 sgmllib3k==1.0.0
     # via feedparser
+urllib3==2.2.2
+    # via requests
