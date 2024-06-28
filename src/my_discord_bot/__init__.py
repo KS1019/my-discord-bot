@@ -52,7 +52,7 @@ def main() -> int:
 
         # Send each entry to url in DISCORD_TWITTER3_WEBHOOK environment variable
         for entry in random_entries:
-            json_data = {"content": f"{entry.title}\n\n{entry.link}"}
+            json_data = {"content": f"\n**{entry.title}**\n\n{entry.link}"}
             # Send request to the webhook with the entry title and link using Python stdlib
             requests.post(DISCORD_TWITTER3_WEBHOOK, json=json_data)
             # Sleep for 0.1 second
