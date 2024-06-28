@@ -1,9 +1,9 @@
 import sys
-import feedparser
 import os
 import random
-import requests
 import time
+import feedparser
+import requests
 
 
 def main() -> int:
