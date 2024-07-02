@@ -17,20 +17,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install the latest version of rye
         uses: eifinger/setup-rye@v3
-      - name: Download json file from the artifacts
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        # with:
-        #   name: ${{ env.JSON_FILE }}
       - name: Run Rye
         env:
           DISCORD_TWITTER3_WEBHOOK: ${{ secrets.DISCORD_TWITTER3_WEBHOOK }}
         run: rye sync && rye run my-discord-bot rss_links.txt
-      - name: Upload json file to the artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.JSON_FILE }}
-          path: ${{ env.JSON_FILE }}
-          retention-days: 1
-          compression-level: 9
-          overwrite: true
+      # Commit the changes
+      - name: Commit changes
+        env:
+          # Ref: https://github.com/actions/checkout/pull/1707
+          GITHUB_BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "${{ env.GITHUB_BOT_EMAIL }}"
+          git add ${{ env.JSON_FILE }}
+          git commit -m "Update ${{ env.JSON_FILE }}"
+          git push
