@@ -29,4 +29,6 @@ jobs:
       - name: Upload json file to the artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.JSON_FILE }}
+          path: ${{ env.JSON_FILE }}
+          compression-level: 9
+          overwrite: true
