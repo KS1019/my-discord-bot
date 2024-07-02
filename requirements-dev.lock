@@ -13,6 +13,8 @@ certifi==2024.6.2
     # via requests
 charset-normalizer==3.3.2
     # via requests
+duckdb==1.0.0
+    # via my-discord-bot
 feedparser==6.0.11
     # via my-discord-bot
 idna==3.7
