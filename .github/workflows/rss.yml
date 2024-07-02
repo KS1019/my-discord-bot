@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install the latest version of rye
         uses: eifinger/setup-rye@v3
       - name: Download json file from the artifacts
@@ -29,6 +29,8 @@ jobs:
       - name: Upload json file to the artifacts
         uses: actions/upload-artifact@v4
         with:
+          name: ${{ env.JSON_FILE }}
           path: ${{ env.JSON_FILE }}
+          retention-days: 1
           compression-level: 9
           overwrite: true
