@@ -55,9 +55,13 @@ def main() -> int:
         "CREATE TABLE sent_entries (url STRING PRIMARY KEY, delivered TIMESTAMP);"
     )
     # Set JSON file name
-    json_file = "sent_entries.json"
+    JSON_FILE = os.getenv("JSON_FILE")
+    assert JSON_FILE is not None, "JSON_FILE must be set."
+    # If JSON_FILE does not exist, create the file
+    if not os.path.exists(JSON_FILE):
+        open(JSON_FILE, "w", encoding="utf-8").close()
     # Load the data from sent_entries.json to the table
-    duckdb.sql(f"COPY sent_entries FROM '{json_file}';")
+    duckdb.sql(f"COPY sent_entries FROM '{JSON_FILE}';")
 
     # Request to get the data from the rss links
     for rss_link in rss_links:
@@ -94,7 +98,7 @@ def main() -> int:
                 # Sleep for 0.1 second
                 time.sleep(1)
     # Write the updated table to sent_entries.json
-    duckdb.sql(f"COPY sent_entries TO '{json_file}';")
+    duckdb.sql(f"COPY sent_entries TO '{JSON_FILE}';")
     if MODE == "DEVELOPMENT":
         print("=====================================")
         # Show table
