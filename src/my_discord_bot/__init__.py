@@ -2,11 +2,21 @@ import sys
 import os
 import random
 import time
+import datetime
+from datetime import timezone
 import feedparser
 import requests
+import duckdb
 
 
 def main() -> int:
+    # Check if `MODE` environment variable is set to `PRODUCTION`
+    MODE = os.getenv("MODE")
+    if MODE is None:
+        # Default to PRODUCTION
+        MODE = "PRODUCTION"
+    assert MODE is not None, "MODE must be set."
+
     # Read a file name containing the links
     if len(sys.argv) < 2:
         print("Usage: rye run my_discord_bot <file_name>")
@@ -34,11 +44,20 @@ def main() -> int:
     # Get DISCORD_TWITTER3_WEBHOOK from the environment variable
     DISCORD_TWITTER3_WEBHOOK = os.getenv("DISCORD_TWITTER3_WEBHOOK")
     # Assert that DISCORD_TWITTER3_WEBHOOK is not None
-    assert DISCORD_TWITTER3_WEBHOOK is not None, "DISCORD_TWITTER3_WEBHOOK must be set."
-    # Assert that DISCORD_TWITTER3_WEBHOOK is a URL
-    assert DISCORD_TWITTER3_WEBHOOK.startswith(
-        "https://discord.com/api/webhooks/"
-    ), "DISCORD_TWITTER3_WEBHOOK must be a URL."
+    assert (
+        DISCORD_TWITTER3_WEBHOOK is not None
+        and DISCORD_TWITTER3_WEBHOOK.startswith("https://discord.com/api/webhooks/")
+    ) or MODE == "DEVELOPMENT", "DISCORD_TWITTER3_WEBHOOK must be set in Production."
+
+    # DuckDB create a table with this schema
+    # (title STRING, url STRING PRIMARY KEY, delivered TIMESTAMP)
+    duckdb.sql(
+        "CREATE TABLE sent_entries (url STRING PRIMARY KEY, delivered TIMESTAMP);"
+    )
+    # Set JSON file name
+    json_file = "sent_entries.json"
+    # Load the data from sent_entries.json to the table
+    duckdb.sql(f"COPY sent_entries FROM '{json_file}';")
 
     # Request to get the data from the rss links
     for rss_link in rss_links:
@@ -53,8 +72,33 @@ def main() -> int:
         # Send each entry to url in DISCORD_TWITTER3_WEBHOOK environment variable
         for entry in random_entries:
             json_data = {"content": f"\n**{entry.title}**\n\n{entry.link}"}
-            # Send request to the webhook with the entry title and link using Python stdlib
-            requests.post(DISCORD_TWITTER3_WEBHOOK, json=json_data)
-            # Sleep for 0.1 second
-            time.sleep(1)
+            # Check if the entry is already sent by trying to insert the entry to the table
+            try:
+                duckdb.sql(
+                    f"INSERT INTO sent_entries VALUES ('{entry.link}', '{datetime.datetime.now(timezone.utc)}');"
+                )
+            except duckdb.Error as e:
+                print(f"Error: {e}")
+                print(
+                    f"Error Entry: {entry.link}, {datetime.datetime.now(timezone.utc)}"
+                )
+                # If the entry is already sent, skip to the next entry
+                continue
+
+            if MODE == "DEVELOPMENT":
+                print(json_data)
+                continue
+            else:
+                # Send request to the webhook with the entry title and link using Python stdlib
+                requests.post(DISCORD_TWITTER3_WEBHOOK, json=json_data, timeout=10)
+                # Sleep for 0.1 second
+                time.sleep(1)
+    # Write the updated table to sent_entries.json
+    duckdb.sql(f"COPY sent_entries TO '{json_file}';")
+    if MODE == "DEVELOPMENT":
+        print("=====================================")
+        # Show table
+        duckdb.sql("SELECT * FROM sent_entries;").show()
+    # Close
+    duckdb.close()
     return 0
