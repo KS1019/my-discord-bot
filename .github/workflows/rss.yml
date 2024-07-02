@@ -19,7 +19,7 @@ jobs:
         uses: eifinger/setup-rye@v3
       - name: Download json file from the artifacts
         uses: actions/download-artifact@v4
-        if: always()
+        continue-on-error: true
         with:
           name: ${{ env.JSON_FILE }}
       - name: Run Rye
