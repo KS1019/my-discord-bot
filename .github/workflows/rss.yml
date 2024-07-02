@@ -20,8 +20,8 @@ jobs:
       - name: Download json file from the artifacts
         uses: actions/download-artifact@v4
         continue-on-error: true
-        with:
-          name: ${{ env.JSON_FILE }}
+        # with:
+        #   name: ${{ env.JSON_FILE }}
       - name: Run Rye
         env:
           DISCORD_TWITTER3_WEBHOOK: ${{ secrets.DISCORD_TWITTER3_WEBHOOK }}
