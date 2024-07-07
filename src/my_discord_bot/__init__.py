@@ -3,23 +3,39 @@ import os
 import random
 import time
 import datetime
+from enum import Enum
 from datetime import timezone
 import feedparser
 import requests
 import duckdb
 
 
+class MODE(Enum):
+    DEVELOPMENT = 1
+    PRODUCTION = 2
+
+
 def main() -> int:
     # Check if `MODE` environment variable is set to `PRODUCTION`
-    MODE = os.getenv("MODE")
-    if MODE is None:
+    running_mode = os.getenv("MODE")
+    if running_mode is None:
         # Default to PRODUCTION
-        MODE = "PRODUCTION"
-    assert MODE is not None, "MODE must be set."
+        running_mode = MODE.PRODUCTION
+    else:
+        running_mode = int(running_mode)
+        # Assert that running_mode can be an instance of MODE
+        # and it is within the range of MODE
+        assert running_mode in [
+            mode.value for mode in MODE
+        ], "MODE must be set within the range of MODE."
+        # Parse the value to Enum
+        running_mode = MODE(int(running_mode))
 
     # Read a file name containing the links
-    if len(sys.argv) < 2:
-        print("Usage: rye run my_discord_bot <file_name>")
+    if len(sys.argv) < 4:
+        print(
+            "Usage: rye run my_discord_bot <rss_links_file> <discord_webhook_url> <sent_entries_file>"
+        )
         sys.exit(1)
 
     rss_links_file = sys.argv[1]
@@ -41,13 +57,16 @@ def main() -> int:
     ), "MAX_ENTRIES_PER_RSS must be an integer."
     assert MAX_ENTRIES_PER_RSS > 0, "MAX_ENTRIES_PER_RSS must be greater than 0."
 
-    # Get DISCORD_TWITTER3_WEBHOOK from the environment variable
-    DISCORD_TWITTER3_WEBHOOK = os.getenv("DISCORD_TWITTER3_WEBHOOK")
-    # Assert that DISCORD_TWITTER3_WEBHOOK is not None
+    # Get discord_webhook_url from the environment variable
+    discord_webhook_url = sys.argv[2]
+    # Assert that discord_webhook_url is not None
     assert (
-        DISCORD_TWITTER3_WEBHOOK is not None
-        and DISCORD_TWITTER3_WEBHOOK.startswith("https://discord.com/api/webhooks/")
-    ) or MODE == "DEVELOPMENT", "DISCORD_TWITTER3_WEBHOOK must be set in Production."
+        (
+            discord_webhook_url is not None
+            and discord_webhook_url.startswith("https://discord.com/api/webhooks/")
+        )
+        or running_mode == MODE.DEVELOPMENT
+    ), "discord_webhook_url must be set in Production."
 
     # DuckDB create a table with this schema
     # (title STRING, url STRING PRIMARY KEY, delivered TIMESTAMP)
@@ -55,13 +74,13 @@ def main() -> int:
         "CREATE TABLE sent_entries (url STRING PRIMARY KEY, delivered TIMESTAMP);"
     )
     # Set JSON file name
-    JSON_FILE = os.getenv("JSON_FILE")
-    assert JSON_FILE is not None, "JSON_FILE must be set."
+    sent_entries_file = sys.argv[3]
+    assert sent_entries_file is not None, "JSON_FILE must be set."
     # If JSON_FILE does not exist, create the file
-    if not os.path.exists(JSON_FILE):
-        open(JSON_FILE, "w", encoding="utf-8").close()
+    if not os.path.exists(sent_entries_file):
+        open(sent_entries_file, "w", encoding="utf-8").close()
     # Load the data from sent_entries.json to the table
-    duckdb.sql(f"COPY sent_entries FROM '{JSON_FILE}';")
+    duckdb.sql(f"COPY sent_entries FROM '{sent_entries_file}';")
 
     # Request to get the data from the rss links
     for rss_link in rss_links:
@@ -73,7 +92,7 @@ def main() -> int:
             data.entries, random.randint(3, MAX_ENTRIES_PER_RSS)
         )
 
-        # Send each entry to url in DISCORD_TWITTER3_WEBHOOK environment variable
+        # Send each entry to url in discord_webhook_url variable
         for entry in random_entries:
             json_data = {"content": f"\n**{entry.title}**\n\n{entry.link}"}
             # Check if the entry is already sent by trying to insert the entry to the table
@@ -89,17 +108,19 @@ def main() -> int:
                 # If the entry is already sent, skip to the next entry
                 continue
 
-            if MODE == "DEVELOPMENT":
-                print(json_data)
-                continue
-            else:
-                # Send request to the webhook with the entry title and link using Python stdlib
-                requests.post(DISCORD_TWITTER3_WEBHOOK, json=json_data, timeout=10)
-                # Sleep for 0.1 second
-                time.sleep(1)
+            match running_mode:
+                case MODE.DEVELOPMENT:
+                    print(json_data)
+                    continue
+                case MODE.PRODUCTION:
+                    # Send request to the webhook with the entry title and link using Python stdlib
+                    requests.post(discord_webhook_url, json=json_data, timeout=10)
+                    # Sleep for 0.1 second
+                    time.sleep(1)
+
     # Write the updated table to sent_entries.json
-    duckdb.sql(f"COPY sent_entries TO '{JSON_FILE}';")
-    if MODE == "DEVELOPMENT":
+    duckdb.sql(f"COPY sent_entries TO '{sent_entries_file}';")
+    if running_mode == MODE.DEVELOPMENT:
         print("=====================================")
         # Show table
         duckdb.sql("SELECT * FROM sent_entries;").show()
