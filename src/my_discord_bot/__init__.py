@@ -5,6 +5,7 @@ import time
 import datetime
 from enum import Enum
 from datetime import timezone
+from dataclasses import dataclass
 import feedparser
 import requests
 import duckdb
@@ -13,6 +14,14 @@ import duckdb
 class MODE(Enum):
     DEVELOPMENT = 1
     PRODUCTION = 2
+
+
+# Dataclass for the duplicate entries information
+@dataclass
+class DuplicateEntry:
+    url: str
+    delivered: datetime.datetime
+    sqlError: str
 
 
 def main() -> int:
@@ -92,19 +101,24 @@ def main() -> int:
             data.entries, random.randint(3, MAX_ENTRIES_PER_RSS)
         )
 
+        # List of duplicate entries
+        duplicate_entries: list[DuplicateEntry] = []
         # Send each entry to url in discord_webhook_url variable
         for entry in random_entries:
             json_data = {"content": f"\n**{entry.title}**\n\n{entry.link}"}
             # Check if the entry is already sent by trying to insert the entry to the table
+            now = datetime.datetime.now(timezone.utc)
             try:
                 duckdb.sql(
-                    f"INSERT INTO sent_entries VALUES ('{entry.link}', '{datetime.datetime.now(timezone.utc)}');"
+                    f"INSERT INTO sent_entries VALUES ('{entry.link}', '{now}');"
                 )
             except duckdb.Error as e:
-                print(f"Error: {e}")
-                print(
-                    f"Error Entry: {entry.link}, {datetime.datetime.now(timezone.utc)}"
+                duplicate_entries.append(
+                    DuplicateEntry(url=entry.link, delivered=now, sqlError=str(e))
                 )
+                # Print the error to stderr
+                print(f"Error: {e}", file=sys.stderr)
+                print(f"Error Entry: {entry.link}, {now}", file=sys.stderr)
                 # If the entry is already sent, skip to the next entry
                 continue
 
@@ -124,6 +138,19 @@ def main() -> int:
         print("=====================================")
         # Show table
         duckdb.sql("SELECT * FROM sent_entries;").show()
+
+    # Check if it is in production mode and on GitHub Actions
+    if (
+        running_mode == MODE.PRODUCTION
+        and os.getenv("GITHUB_ACTIONS") == "true"
+        and duplicate_entries
+    ):
+        # Put the duplicate entries to the log via `GITHUB_STEP_SUMMARY` in markdown format
+        print("| URL | Delivered | SQL Error |")
+        print("| --- | --- | --- |")
+        for entry in duplicate_entries:
+            print(f"| {entry.url} | {entry.delivered} | {entry.sqlError} |")
+
     # Close
     duckdb.close()
     return 0

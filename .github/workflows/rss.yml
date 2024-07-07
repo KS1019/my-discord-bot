@@ -22,7 +22,7 @@ jobs:
       - name: Run Rye
         run: |
           rye sync
-          rye run my-discord-bot rss_links.txt ${{ secrets.DISCORD_TWITTER3_WEBHOOK }} ${{ env.JSON_FILE }}
+          rye run my-discord-bot rss_links.txt ${{ secrets.DISCORD_TWITTER3_WEBHOOK }} ${{ env.JSON_FILE }} >> $GITHUB_STEP_SUMMARY
       # Commit the changes
       - name: Commit changes
         env:
