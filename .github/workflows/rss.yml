@@ -17,9 +17,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Install the latest version of rye
-        uses: eifinger/setup-rye@v3
-      - name: Run Rye
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+      - run: pip install uv && uv pip install --system -r requirements.txt
+      - name: Run UV
         run: |
           uv sync
           uv run my-discord-bot rss_links.txt ${{ secrets.DISCORD_TWITTER3_WEBHOOK }} ${{ env.JSON_FILE }} >> $GITHUB_STEP_SUMMARY
