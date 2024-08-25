@@ -20,10 +20,10 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-uv-
-      - run: pip install uv && uv pip install --system -r requirements.txt
+      - run: pip install uv && uv pip install --system -r pyproject.toml
       - name: Run UV
         run: |
           uv sync
