@@ -8,7 +8,7 @@ from datetime import timezone
 from dataclasses import dataclass
 import feedparser
 import requests
-import duckdb
+import sqlite3
 
 
 class MODE(Enum):
@@ -41,9 +41,9 @@ def main() -> int:
         running_mode = MODE(int(running_mode))
 
     # Read a file name containing the links
-    if len(sys.argv) < 4:
+    if len(sys.argv) < 3:
         print(
-            "Usage: rye run my_discord_bot <rss_links_file> <discord_webhook_url> <sent_entries_file>"
+            "Usage: uv run my_discord_bot <rss_links_file> <discord_webhook_url>"
         )
         sys.exit(1)
 
@@ -77,19 +77,10 @@ def main() -> int:
         or running_mode == MODE.DEVELOPMENT
     ), "discord_webhook_url must be set in Production."
 
-    # DuckDB create a table with this schema
-    # (title STRING, url STRING PRIMARY KEY, delivered TIMESTAMP)
-    duckdb.sql(
-        "CREATE TABLE sent_entries (url STRING PRIMARY KEY, delivered TIMESTAMP);"
-    )
-    # Set JSON file name
-    sent_entries_file = sys.argv[3]
-    assert sent_entries_file is not None, "JSON_FILE must be set."
-    # If JSON_FILE does not exist, create the file
-    if not os.path.exists(sent_entries_file):
-        open(sent_entries_file, "w", encoding="utf-8").close()
-    # Load the data from sent_entries.json to the table
-    duckdb.sql(f"COPY sent_entries FROM '{sent_entries_file}';")
+    # Connect to the database
+    dbname = "sent_entries.db"
+    conn = sqlite3.connect(dbname)
+    c = conn.cursor()
 
     # Request to get the data from the rss links
     for rss_link in rss_links:
@@ -109,10 +100,10 @@ def main() -> int:
             # Check if the entry is already sent by trying to insert the entry to the table
             now = datetime.datetime.now(timezone.utc)
             try:
-                duckdb.sql(
-                    f"INSERT INTO sent_entries VALUES ('{entry.link}', '{now}');"
+                c.execute(
+                    "INSERT INTO sent_entries VALUES (?, ?);", (entry.link, now)
                 )
-            except duckdb.Error as e:
+            except sqlite3.Error as e:
                 duplicate_entries.append(
                     DuplicateEntry(url=entry.link, delivered=now, sqlError=str(e))
                 )
@@ -132,12 +123,14 @@ def main() -> int:
                     # Sleep for 0.1 second
                     time.sleep(1)
 
-    # Write the updated table to sent_entries.json
-    duckdb.sql(f"COPY sent_entries TO '{sent_entries_file}';")
+        # Commit the changes
+        conn.commit()
+
     if running_mode == MODE.DEVELOPMENT:
         print("=====================================")
         # Show table
-        duckdb.sql("SELECT * FROM sent_entries;").show()
+        c.execute("SELECT * FROM sent_entries;")
+        print(c.fetchall())
 
     # Check if it is in production mode and on GitHub Actions
     if (
@@ -152,5 +145,5 @@ def main() -> int:
             print(f"| {entry.url} | {entry.delivered} | {entry.sqlError} |")
 
     # Close
-    duckdb.close()
+    conn.close()
     return 0
