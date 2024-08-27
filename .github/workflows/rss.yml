@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
 
 env:
-  JSON_FILE: sent_entries.json
+  DB_FILE: sent_entries.db
 
 jobs:
-  rss:
+  RSS:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -31,7 +31,7 @@ jobs:
       - name: Run UV
         run: |
           uv sync
-          uv run my-discord-bot rss_links.txt ${{ secrets.DISCORD_TWITTER3_WEBHOOK }} ${{ env.JSON_FILE }} >> $GITHUB_STEP_SUMMARY
+          uv run my-discord-bot rss_links.txt ${{ secrets.DISCORD_TWITTER3_WEBHOOK }} >> $GITHUB_STEP_SUMMARY
       # Commit the changes
       - name: Commit changes
         env:
@@ -40,8 +40,8 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "${{ env.GITHUB_BOT_EMAIL }}"
-          git add ${{ env.JSON_FILE }}
-          git commit -m "Update ${{ env.JSON_FILE }}"
+          git add ${{ env.DB_FILE }}
+          git commit -m "Update ${{ env.DB_FILE }}"
           git push
       - name: Minimize uv cache
         run: uv cache prune --ci
