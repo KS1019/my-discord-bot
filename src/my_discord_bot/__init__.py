@@ -6,9 +6,9 @@ import datetime
 from enum import Enum
 from datetime import timezone
 from dataclasses import dataclass
-import feedparser
-import requests
 import sqlite3
+import requests
+import feedparser
 
 
 class MODE(Enum):
@@ -42,9 +42,7 @@ def main() -> int:
 
     # Read a file name containing the links
     if len(sys.argv) < 3:
-        print(
-            "Usage: uv run my_discord_bot <rss_links_file> <discord_webhook_url>"
-        )
+        print("Usage: uv run my_discord_bot <rss_links_file> <discord_webhook_url>")
         sys.exit(1)
 
     rss_links_file = sys.argv[1]
@@ -100,9 +98,7 @@ def main() -> int:
             # Check if the entry is already sent by trying to insert the entry to the table
             now = datetime.datetime.now(timezone.utc)
             try:
-                c.execute(
-                    "INSERT INTO sent_entries VALUES (?, ?);", (entry.link, now)
-                )
+                c.execute("INSERT INTO sent_entries VALUES (?, ?);", (entry.link, now))
             except sqlite3.Error as e:
                 duplicate_entries.append(
                     DuplicateEntry(url=entry.link, delivered=now, sqlError=str(e))
