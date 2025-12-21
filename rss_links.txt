@@ -3,3 +3,4 @@ http://feeds.arstechnica.com/arstechnica/technology-lab
 https://yamadashy.github.io/tech-blog-rss-feed/feeds/rss.xml
 https://tokizuoh.hatenablog.com/rss
 https://lucumr.pocoo.org/feed.xml
+feed://developer.apple.com/news/rss/news.rss
