@@ -60,6 +60,14 @@ class BotTests(unittest.TestCase):
         post.assert_not_called()
         self.assertEqual(self.entries(), [("https://example.com/article",)])
 
+    def test_invalid_publication_date_omits_timestamp(self):
+        entry = bot.feedparser.parse("feed.xml").entries[0]
+        for error in (ValueError, OSError, OverflowError):
+            with self.subTest(error=error), patch.object(bot.calendar, "timegm", side_effect=error):
+                embed = bot.entry_to_embed(entry, "Test feed", 42)
+            self.assertNotIn("timestamp", embed)
+            self.assertEqual(embed["title"], "Article")
+
     def test_production_posts_once_and_reports_duplicate_on_second_run(self):
         output = io.StringIO()
         with (
@@ -87,6 +95,47 @@ class BotTests(unittest.TestCase):
         self.assertEqual(post.call_count, 2)
         sleep.assert_any_call(2.0)
         self.assertEqual(self.entries(), [("https://example.com/article",)])
+
+    def test_explicit_production_mode_posts_entry(self):
+        with (
+            patch.object(bot.requests, "post", return_value=Mock(status_code=204)) as post,
+            patch.object(bot.time, "sleep"),
+        ):
+            self.assertEqual(self.run_bot(MODE="2"), 0)
+        post.assert_called_once()
+
+    def test_invalid_rate_limit_json_uses_default_delay(self):
+        limited = Mock(status_code=429)
+        limited.json.side_effect = ValueError("invalid JSON")
+        with (
+            patch.object(bot.requests, "post", side_effect=[limited, Mock(status_code=204)]),
+            patch.object(bot.time, "sleep") as sleep,
+        ):
+            self.assertEqual(self.run_bot(), 0)
+        sleep.assert_any_call(5.0)
+        self.assertEqual(self.entries(), [("https://example.com/article",)])
+
+    def test_duplicate_summary_preserves_feed_order(self):
+        second_feed = Path("feed.xml").read_text(encoding="utf-8")
+        Path("second.xml").write_text(
+            second_feed.replace("Test feed", "Second feed").replace("/article", "/second"),
+            encoding="utf-8",
+        )
+        Path("feeds.txt").write_text("feed.xml\nsecond.xml\n", encoding="utf-8")
+        output = io.StringIO()
+        with (
+            patch.object(bot.requests, "post", return_value=Mock(status_code=204)) as post,
+            patch.object(bot.time, "sleep"),
+        ):
+            self.assertEqual(self.run_bot(), 0)
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(self.run_bot(GITHUB_ACTIONS="true"), 0)
+        self.assertEqual(post.call_count, 2)
+        summary = output.getvalue()
+        first = summary.index("| https://example.com/article |")
+        second = summary.index("| https://example.com/second |")
+        self.assertLess(first, second)
+        self.assertEqual(summary.count("## Duplicate Entries"), 1)
 
     def test_delivery_failure_leaves_entry_available_for_retry(self):
         with (

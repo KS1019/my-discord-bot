@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import sys
 import os
 import re
@@ -10,7 +8,7 @@ import calendar
 import logging
 import sqlite3
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from dataclasses import dataclass, field
 from typing import Any
@@ -79,9 +77,9 @@ def entry_to_embed(
     if published_parsed:
         try:
             ts: int = calendar.timegm(tuple(published_parsed))
-            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+            dt = datetime.fromtimestamp(ts, tz=UTC)
             embed["timestamp"] = dt.isoformat()
-        except (ValueError, OSError, OverflowError):
+        except ValueError, OSError, OverflowError:
             pass
 
     # Add author if available
@@ -112,10 +110,11 @@ def main() -> int:
             )
             return 1
 
-        valid_values = [mode.value for mode in Mode]
-        if running_mode_val not in valid_values:
+        if running_mode_val not in Mode:
             logger.error(
-                "MODE must be one of %s, got: %d", valid_values, running_mode_val
+                "MODE must be one of %s, got: %d",
+                [mode.value for mode in Mode],
+                running_mode_val,
             )
             return 1
         running_mode = Mode(running_mode_val)
@@ -226,7 +225,7 @@ def main() -> int:
                     continue
 
                 # Deduplicate using INSERT OR IGNORE
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 c.execute(
                     "INSERT OR IGNORE INTO sent_entries (url, delivered) VALUES (?, ?)",
                     (entry_link, now.isoformat()),
@@ -262,7 +261,7 @@ def main() -> int:
                     if resp.status_code == 429:
                         try:
                             retry_after = resp.json().get("retry_after", 5)
-                        except (ValueError, KeyError):
+                        except ValueError, KeyError:
                             retry_after = 5
                         logger.warning("Rate limited, sleeping %ss", retry_after)
                         time.sleep(float(retry_after))
