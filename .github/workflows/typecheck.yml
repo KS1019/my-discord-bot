@@ -3,9 +3,9 @@ name: Type Check
 on:
   push:
     branches: [main]
-    paths: ["src/**", "pyproject.toml"]
+    paths: ["src/**", "tests/**", "pyproject.toml", "uv.lock", ".python-version", ".github/workflows/**"]
   pull_request:
-    paths: ["src/**", "pyproject.toml"]
+    paths: ["src/**", "tests/**", "pyproject.toml", "uv.lock", ".python-version", ".github/workflows/**"]
 
 jobs:
   pyrefly:
@@ -14,14 +14,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
       - name: Set up Python
-        # uv's portable builds also support older Python pins on newer runners.
         run: uv python install
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
+
+      - name: Run tests
+        run: uv run --locked python -W error::DeprecationWarning -W error::ResourceWarning -m unittest discover -s tests -v
 
       - name: Run Pyrefly
-        run: uv run pyrefly check --output-format=github
+        run: uv run --locked pyrefly check --output-format=github
