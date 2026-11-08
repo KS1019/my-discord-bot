@@ -9,6 +9,7 @@ import time
 import calendar
 import logging
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timezone
 from enum import Enum
 from dataclasses import dataclass, field
@@ -167,11 +168,11 @@ def main() -> int:
             )
             return 1
 
-    # Connect to database with context manager
+    # Close the connection as well as managing its transactions.
     dbname: str = "sent_entries.db"
     all_feed_stats: list[FeedStats] = []
 
-    with sqlite3.connect(dbname) as conn:
+    with closing(sqlite3.connect(dbname)) as conn, conn:
         c = conn.cursor()
 
         # Create table if it doesn't exist (PRIMARY KEY implies UNIQUE)
